@@ -9,6 +9,8 @@
 		root.postit = root.postit || {};
 	}
 
+	GUID = function () { var res = [], hv, rgx = new RegExp('[2345]'); for (var i = 0; i < 8; i++) { hv = (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1); if (rgx.exec(i.toString()) != null) { if (i == 3) { hv = '6' + hv.substr(1, 3); } res.push('-'); } res.push(hv.toUpperCase()); } return res.join(''); }
+
 	/* MODELS */
 	postit.Note = root.Backbone.Model.extend({
 		defaults: function() {
@@ -19,28 +21,13 @@
 		},
 		initialize: function() {
 			if(!this.has('id')) {
-				this.set({ id: this.guid() });
+				this.set({ id: GUID() });
 			}
-			var model = this;
 			this.bind('change', function() {
-				if(model.room) {
-					model.room.changeNote(model.toJSON());
+				if(this.room) {
+					this.room.setNote(this.toJSON(), true);
 				}
-			})
-		},
-		guid: function () {
-			var res = [], hv, rgx = new RegExp('[2345]');
-			for (var i = 0; i < 8; i++) {
-				hv = (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
-				if (rgx.exec(i.toString()) != null) {
-					if (i == 3) {
-						hv = '6' + hv.substr(1, 3);
-					}
-					res.push('-');
-				}
-				res.push(hv.toUpperCase());
-			}
-			return res.join('');
+			}, this)
 		}
 	});
 
@@ -59,8 +46,7 @@
 		},
 		initialize: function() {
 			var model = this;
-			var socket = this.socket();
-			socket.on('connection', function(client) {
+			this.get('socket').on('connection', function(client) {
 				client.emit('lights' + (model.get('lights') ? 'On' : 'Off'));
 				var clientsConnected = function() {
 					return _(client.manager.connected).keys().length;
@@ -75,20 +61,19 @@
 				});
 				model.initializeEvents(client);
 			});
-			model.initializeEvents(socket);
+			model.initializeEvents(this.get('socket'));
 		},
 		initializeEvents: function(socket) {
-			var manager = socket.manager;
 			var model = this;
 			socket.on('lightsOn', function() {
 				model.set({ lights: true });
-				if(manager) {
+				if(socket.manager) {
 					socket.broadcast.emit('lightsOn');
 				}
 			});
 			socket.on('lightsOff', function() {
 				model.set({ lights: false });
-				if(manager) {
+				if(socket.manager) {
 					socket.broadcast.emit('lightsOff');
 				}
 			});
@@ -96,26 +81,17 @@
 				model.set({ clientsConnected: data });
 			});
 			socket.on('note', function(data) {
-				var note = model.note(data);
-				if(manager) {
+				var note = model.setNote(data);
+				if(socket.manager) {
 					socket.broadcast.emit('note', note.toJSON());
 				}
 			});
 		},
 		toggleLights: function() {
 			this.set({ lights: !this.get('lights') });
-			this.socket().emit('lights' + (this.get('lights') ? 'On' : 'Off'));
+			this.get('socket').emit('lights' + (this.get('lights') ? 'On' : 'Off'));
 		},
-		socket: function() {
-			return this.get('socket');
-		},
-		addNote: function(data) {
-			this.socket().emit('note', this.note(data, true).toJSON());
-		},
-		changeNote: function(data) {
-			this.socket().emit('note', this.note(data, true).toJSON());
-		},
-		note: function(data, silent) {
+		setNote: function(data, broadcast) {
 			var model = this;
 			var note = model.get('notes').get(data.id);
 			if(!note) {
@@ -123,7 +99,10 @@
 				note.room = model;
 				model.get('notes').add(note);
 			}
-			note.set(data, { silent: silent });
+			note.set(data, { silent: broadcast });
+			if(broadcast) {
+				this.get('socket').emit('note', note.toJSON());
+			}
 			return note;
 		}
 	});
@@ -144,7 +123,8 @@
 			this.update();
 			el.draggable({
 				stop: function(e) {
-					model.set({ x: el.get(0).clientX, y: el.get(0).clientY });
+					console.log(el.position());
+					model.set(el.position());
 				}
 			}).dblclick(function(e) {
 				e.stopPropagation();
@@ -163,14 +143,13 @@
 			return this;
 		},
 		update: function() {
-			$(this.el).css({ position: 'absolute', '-webkit-transform': 'rotate(' + this.model.get('rotation') + 'deg)', zIndex: 99, left: this.model.get('x'), top: this.model.get('y') })
-				.find('.text').html(this.model.get('text'));
-		},
-		remove: function() {
-			$(this.el).remove();
-		},
-		clear: function() {
-			this.model.destroy();
+			$(this.el).css({
+				position: 'absolute',
+				'-webkit-transform': 'rotate(' + this.model.get('rotation') + 'deg)',
+				left: this.model.get('left') + 'px',
+				top: this.model.get('top') + 'px'
+			})
+			.find('.text').html(this.model.get('text'));
 		}
 	});
 
@@ -188,7 +167,7 @@
 			var edit = false;
 			$(this.el).dblclick(function(e) {
 				edit = true;
-				model.addNote({ x: e.pageX, y: e.pageY });
+				model.setNote({ left: e.pageX, top: e.pageY }, true);
 			});
 			model.bind('change:lights', function() {
 				$('.light').toggleClass('on', model.get('lights'));
