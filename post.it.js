@@ -63,40 +63,31 @@
 				client.on('disconnect', function() {
 				    client.broadcast.emit('clientsConnected', clientsConnected());
 				});
-				client.on('lightsOn', function() {
-					model.set({lights: true});
-					client.broadcast.emit('lightsOn');
-				});
-				client.on('lightsOff', function() {
-					model.set({lights: false});
-					client.broadcast.emit('lightsOff');
-				});
+				model.initializeEvents(client);
 			});
-			socket.on('lightsOn', function() {
-				model.set({lights: true});
-			});
-			socket.on('lightsOff', function() {
-				model.set({lights: false});
-			});
-			socket.on('clientsConnected', function(data) {
-				model.set({clientsConnected: data});
-			});
+			model.initializeEvents(socket);
 		},
 		initializeEvents: function(socket) {
-			/*socket.on('lightsOn', function() {
-				model.set({lights: true});
-				socket.broadcast.emit('lightsOn');
+			var manager = socket.manager;
+			var model = this;
+			socket.on('lightsOn', function() {
+				model.set({ lights: true });
+				if(manager) {
+					socket.broadcast.emit('lightsOn');
+				}
 			});
 			socket.on('lightsOff', function() {
-				model.set({lights: false});
-				socket.broadcast.emit('lightsOff');
+				model.set({ lights: false });
+				if(manager) {
+					socket.broadcast.emit('lightsOff');
+				}
 			});
 			socket.on('clientsConnected', function(data) {
-				model.set({clientsConnected: data});
-			});*/
+				model.set({ clientsConnected: data });
+			});
 		},
 		toggleLights: function() {
-			this.set({lights: !this.get('lights')});
+			this.set({ lights: !this.get('lights') });
 			this.socket().emit('lights' + (this.get('lights') ? 'On' : 'Off'));
 		},
 		socket: function() {
@@ -148,7 +139,7 @@
 				$('.clientsConnected').html(model.get('clientsConnected'));
 			});
 			model.get('notes').bind('add', function(note) {
-				var view = new postit.NoteView({model: note});
+				var view = new postit.NoteView({ model: note });
 				$(this.el).append(view.render().el);
 			}, this);
 			model.bind('destroy', this.remove, this);
