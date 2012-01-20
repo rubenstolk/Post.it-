@@ -20,10 +20,14 @@
 			if(!this.has('id')) {
 				this.set({ id: this.guid() });
 			}
+			var model = this;
+			this.bind('change', function() {
+				if(model.room) {
+					model.room.changeNote(model.toJSON());
+				}
 		},
 		guid: function () {
-			var res = [], hv;
-			var rgx = new RegExp('[2345]');
+			var res = [], hv, rgx = new RegExp('[2345]');
 			for (var i = 0; i < 8; i++) {
 				hv = (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
 				if (rgx.exec(i.toString()) != null) {
@@ -90,13 +94,9 @@
 				model.set({ clientsConnected: data });
 			});
 			socket.on('note', function(data) {
-				var note = model.get('notes').get(data.id);
-				if(!note) {
-					note = new postit.Note(data);
-					model.get('notes').add(note);
-				}
+				var note = model.note(data);
 				if(manager) {
-					socket.broadcast.emit('note', data);
+					socket.broadcast.emit('note', note.toJSON());
 				}
 			});
 		},
@@ -107,10 +107,22 @@
 		socket: function() {
 			return this.get('socket');
 		},
-		newNote: function(data) {
-			var note = new postit.Note(data);
-			this.get('notes').add(note);
-			this.socket().emit('note', note.toJSON());
+		addNote: function(data) {
+			this.socket().emit('note', this.note(data, true).toJSON());
+		},
+		changeNote: function(data) {
+			this.socket().emit('note', this.note(data, true).toJSON());
+		},
+		note: function(data, silent) {
+			var model = this;
+			var note = model.get('notes').get(data.id);
+			if(!note) {
+				note = new postit.Note(data);
+				note.room = model;
+				model.get('notes').add(note);
+			}
+			note.set(data, { silent: silent });
+			return note;
 		}
 	});
 
@@ -119,10 +131,22 @@
 		tagName: 'div',
 		className: 'note',
 		initialize: function() {
+			this.model.bind('change', function() {
+				this.setPosition();
+			}, this);
 		},
 		render: function() {
-			$(this.el).css({ left: this.model.get('x'), top: this.model.get('y') });
+			var model = this.model;
+			this.setPosition();
+			$(this.el).draggable({
+				stop: function(e) {
+					model.set({ x: e.pageX, y: e.pageY });
+				}
+			});
 			return this;
+		},
+		setPosition: function() {
+			$(this.el).css({ position: 'absolute', left: this.model.get('x'), top: this.model.get('y') });
 		},
 		remove: function() {
 			$(this.el).remove();
@@ -144,7 +168,7 @@
 				}
 			});
 			$(this.el).dblclick(function(e) {
-				model.newNote({ x: e.pageX, y: e.pageY });
+				model.addNote({ x: e.pageX, y: e.pageY });
 			});
 			model.bind('change:lights', function() {
 				$('.light').toggleClass('on', model.get('lights'));
