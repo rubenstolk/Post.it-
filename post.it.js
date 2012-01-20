@@ -17,7 +17,9 @@
 			};
 		},
 		initialize: function() {
-			this.set({ id: this.guid() });
+			if(!this.has('id')) {
+				this.set({ id: this.guid() });
+			}
 		},
 		guid: function () {
 			var res = [], hv;
@@ -52,12 +54,14 @@
 		initialize: function() {
 			var model = this;
 			var socket = this.socket();
-			console.log(socket.manager);
 			socket.on('connection', function(client) {
 				client.emit('lights' + (model.get('lights') ? 'On' : 'Off'));
 				var clientsConnected = function() {
 					return _(client.manager.connected).keys().length;
 				};
+				model.get('notes').each(function(note) {
+					client.emit('note', note.toJSON());
+				});
 			    client.emit('clientsConnected', clientsConnected());
 			    client.broadcast.emit('clientsConnected', clientsConnected());
 				client.on('disconnect', function() {
@@ -85,6 +89,16 @@
 			socket.on('clientsConnected', function(data) {
 				model.set({ clientsConnected: data });
 			});
+			socket.on('note', function(data) {
+				var note = model.get('notes').get(data.id);
+				if(!note) {
+					note = new postit.Note(data);
+					model.get('notes').add(note);
+				}
+				if(manager) {
+					socket.broadcast.emit('note', data);
+				}
+			});
 		},
 		toggleLights: function() {
 			this.set({ lights: !this.get('lights') });
@@ -93,10 +107,10 @@
 		socket: function() {
 			return this.get('socket');
 		},
-		newNote: function(x, y, text) {
-			var note = new postit.Note({ x: x, y: y, text: text });
+		newNote: function(data) {
+			var note = new postit.Note(data);
 			this.get('notes').add(note);
-			this.socket().emit('newNote', note.toJSON());
+			this.socket().emit('note', note.toJSON());
 		}
 	});
 
@@ -130,7 +144,7 @@
 				}
 			});
 			$(this.el).dblclick(function(e) {
-				model.newNote(e.pageX, e.pageY);
+				model.newNote({ x: e.pageX, y: e.pageY });
 			});
 			model.bind('change:lights', function() {
 				$('.light').toggleClass('on', model.get('lights'));
