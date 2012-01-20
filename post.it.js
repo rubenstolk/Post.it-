@@ -14,6 +14,7 @@
 		defaults: function() {
 			return {
 				text: 'New note...',
+				rotation: -30 + parseInt(60 * Math.random())
 			};
 		},
 		initialize: function() {
@@ -133,21 +134,37 @@
 		className: 'note',
 		initialize: function() {
 			this.model.bind('change', function() {
-				this.setPosition();
+				this.update();
 			}, this);
 		},
-		render: function() {
+		render: function(edit) {
 			var model = this.model;
-			this.setPosition();
-			$(this.el).draggable({
+			var el = $(this.el);
+			var text = $('<div class="text" />').appendTo(el);
+			this.update();
+			el.draggable({
 				stop: function(e) {
-					model.set({ x: e.pageX, y: e.pageY });
+					model.set({ x: el.get(0).clientX, y: el.get(0).clientY });
 				}
+			}).dblclick(function(e) {
+				e.stopPropagation();
+				text.attr({ contentEditable: 'true' });
+				text.get(0).focus();
+				document.execCommand('selectAll', false, null);
 			});
+			text.blur(function() {
+				model.set({ text: text.html() });
+			});
+			if(edit) {
+				setTimeout(function() {
+					text.trigger('dblclick');
+				}, 1)
+			}
 			return this;
 		},
-		setPosition: function() {
-			$(this.el).css({ position: 'absolute', left: this.model.get('x'), top: this.model.get('y') });
+		update: function() {
+			$(this.el).css({ position: 'absolute', '-webkit-transform': 'rotate(' + this.model.get('rotation') + 'deg)', zIndex: 99, left: this.model.get('x'), top: this.model.get('y') })
+				.find('.text').html(this.model.get('text'));
 		},
 		remove: function() {
 			$(this.el).remove();
@@ -168,7 +185,9 @@
 					model.toggleLights();
 				}
 			});
+			var edit = false;
 			$(this.el).dblclick(function(e) {
+				edit = true;
 				model.addNote({ x: e.pageX, y: e.pageY });
 			});
 			model.bind('change:lights', function() {
@@ -179,7 +198,8 @@
 			});
 			model.get('notes').bind('add', function(note) {
 				var view = new postit.NoteView({ model: note });
-				$(this.el).append(view.render().el);
+				$(this.el).append(view.render(edit).el);
+				edit = false;
 			}, this);
 			model.bind('destroy', this.remove, this);
 		},
