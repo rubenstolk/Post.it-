@@ -25,6 +25,7 @@
 				if(model.room) {
 					model.room.changeNote(model.toJSON());
 				}
+			})
 		},
 		guid: function () {
 			var res = [], hv, rgx = new RegExp('[2345]');
