@@ -1,0 +1,22 @@
+!!! 5
+html(lang="en")
+	head
+		title Post.it!
+		link(rel="stylesheet/less", type="text/css", href="/style.less")
+		script(src="less.js")
+		script(src="jquery.js")
+		script(src="socket.io/socket.io.js")
+		script(src="node_modules/underscore/underscore.js")
+		script(src="node_modules/backbone/backbone.js")
+		script(src="post.it.js")
+		script(src="client.js")
+	body
+		.background
+			img(src="background.jpg", alt="")
+		.light
+			// svg(xmlns="http://www.w3.org/2000/svg").lamp
+			//	ellipse(cx="50", cy="50", rx="40", ry="10")
+			.overlay
+		#room
+			.clientsConnected
+			!= body

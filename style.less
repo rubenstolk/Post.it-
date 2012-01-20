@@ -1,0 +1,76 @@
+html, body {
+	margin: 0px;
+	padding: 0px;
+	height: 100%;
+	font-family: 'Apple Chancery';
+}
+
+.background {
+	position: absolute;
+	z-index: 0;
+	width: 100%;
+	img {
+		width: 100%;
+	}
+}
+
+#room {
+	-webkit-user-select: none;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	z-index: 2;
+	.clientsConnected {
+		position: absolute;
+		color: #dbd6dd;
+		font-size: 360%;
+		opacity: 0.7;
+		-webkit-transform: rotate(-4deg);
+	}
+}
+
+.note {
+	position: absolute;
+	background-image: url(note.png);
+	width: 100px;
+	height: 65px;
+}
+
+.light {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	z-index: 1;
+	.lamp {
+		position: absolute;
+		right: 125px;
+		top: 180px;
+		width: 100px;
+		height: 50px;
+		overflow: hidden;
+		z-index: 2;
+		ellipse {
+			fill: #d8cec0;
+			opacity: 0.5;
+		}
+	}
+	.overlay {
+		background-color: #000;
+		opacity: 0.4;
+		min-height: 100%;
+		width: 100%;
+	}
+	&.on {
+		.lamp {
+			ellipse {
+				fill: #fbf149;
+			}
+		}
+		.overlay {
+			background-color: #fbf149;
+			opacity: 0.1;
+			min-height: 100%;
+			width: 100%;
+		}
+	}
+}
